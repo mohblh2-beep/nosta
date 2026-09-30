@@ -1,0 +1,229 @@
+const { Client, GatewayIntentBits } = require('discord.js');
+const { joinVoiceChannel, getVoiceConnection } = require('@discordjs/voice');
+const cron = require('node-cron');
+
+// تحديد الصلاحيات (Intents)
+const client = new Client({
+    intents: [
+        GatewayIntentBits.Guilds,
+        GatewayIntentBits.GuildVoiceStates,
+        GatewayIntentBits.GuildMembers,
+        GatewayIntentBits.GuildAuditLogs
+    ]
+});
+
+// ─── الإعدادات والمتغيرات ───────────────────────────────────
+const TOKEN = 'MTU1NDY3Mjc3MjcxNjY5NTU2Mg.GkmhmS.kvJK0DQ1ivaXcU-72Chg1MBnG2VY7I66D1vKhI';                 // توكين البوت
+const GUILD_ID = '1476040143914795008';               // آيدي السيرفر
+const TARGET_CHANNEL_ID = '1554675333251473448';   // آيدي الروم الصوتي
+const PROTECTED_ROLE_ID = '1554648648468537345';     // آيدي الرول المحمي
+const OWNER_ID = '1488220819669909616';              // الشخص الوحيد المعفي وله كامل الصلاحيات
+// ────────────────────────────────────────────────────────────
+
+// 1️⃣ دالة الاتصال بالروم الصوتي والبقاء فيه
+function connectToVoiceChannel() {
+    try {
+        const channel = client.channels.cache.get(TARGET_CHANNEL_ID);
+        if (!channel || !channel.isVoiceBased()) return;
+
+        joinVoiceChannel({
+            channelId: channel.id,
+            guildId: GUILD_ID,
+            adapterCreator: channel.guild.voiceAdapterCreator,
+            selfDeaf: true,
+            selfMute: false
+        });
+    } catch (error) {
+        console.error('⚠️ خطأ في الاتصال بالصوت:', error);
+    }
+}
+
+// 2️⃣ دالة المعاقبة عند التعدي على الرول المحمي
+async function punishExecutor(guild, executorId) {
+    if (executorId === OWNER_ID || executorId === client.user.id) return false;
+
+    try {
+        const member = await guild.members.fetch(executorId).catch(() => null);
+        if (!member || member.user.bot) return false;
+
+        // نزع جميع رولات الشخص
+        const rolesToRemove = member.roles.cache.filter(r => r.id !== guild.id);
+        await member.roles.remove(rolesToRemove).catch(e => console.error('لم أتمكن من نزع الرولات:', e));
+
+        // إعطاء Time Out لمدة دقيقة واحدة (60,000 ملي ثانية)
+        await member.timeout(60 * 1000, 'التعدي على الرول المحمي').catch(e => console.error('لم أتمكن من إعطاء Time Out:', e));
+
+        // إرسال الرسالة في الخاص
+        await member.send('echhht mt3awdch khtra jaya s9si mo77').catch(e => console.log('الخاص مقفول عند العضو.'));
+        return true;
+    } catch (err) {
+        console.error('⚠ خطأ أثناء تطبيق العقوبة:', err);
+        return false;
+    }
+}
+
+// 3️⃣ عند تشغيل البوت
+client.once('ready', async () => {
+    console.log(`🤖 البوت يعمل بنجاح باسم: ${client.user.tag}`);
+    
+    // الدخول للروم الصوتي وفحص دائم
+    connectToVoiceChannel();
+    setInterval(() => {
+        const connection = getVoiceConnection(GUILD_ID);
+        if (!connection || connection.joinConfig.channelId !== TARGET_CHANNEL_ID) {
+            connectToVoiceChannel();
+        }
+    }, 10000);
+
+    // 📩 إرسال رسالة الترحيب تلقائياً لحاملي الرول فور تشغيل البوت
+    const guild = client.guilds.cache.get(GUILD_ID);
+    if (guild) {
+        const role = await guild.roles.fetch(PROTECTED_ROLE_ID).catch(() => null);
+        if (role) {
+            const welcomeMessage = "nostalgia club رجع من جديد ورجعو فيه غير لعزاز";
+            role.members.forEach(async (member) => {
+                if (!member.user.bot) {
+                    await member.send(welcomeMessage).catch(() => console.log(`تعذر إرسال رسالة التشغيل لـ ${member.user.tag}`));
+                }
+            });
+        }
+    }
+
+    // ⏰ أذكار النوم (كل يوم على الساعة 12:00 منتصف الليل)
+    cron.schedule('0 0 * * *', async () => {
+        const currentGuild = client.guilds.cache.get(GUILD_ID);
+        if (!currentGuild) return;
+
+        const role = await currentGuild.roles.fetch(PROTECTED_ROLE_ID).catch(() => null);
+        if (!role) return;
+
+        const sleepAzkar = `🌙 **تصبح على خير! أذكار النوم:**\n\n- باسمِكَ ربِّي وضعتُ جنبي وبِكَ أرفعُهُ، إن أمسَكْتَ نفسي فارحمْها، وإن أرسلْتَها فاحفظْها بما تحفظُ به عبادَكَ الصالحين.\n- قراءة آية الكرسي والمعوذتين.`;
+
+        role.members.forEach(async (member) => {
+            if (!member.user.bot) {
+                await member.send(sleepAzkar).catch(() => console.log(`تعذر إرسال أذكار النوم لـ ${member.user.tag}`));
+            }
+        });
+    });
+
+    // ⏰ أذكار الصباح (كل يوم على الساعة 08:00 صباحاً)
+    cron.schedule('0 8 * * *', async () => {
+        const currentGuild = client.guilds.cache.get(GUILD_ID);
+        if (!currentGuild) return;
+
+        const role = await currentGuild.roles.fetch(PROTECTED_ROLE_ID).catch(() => null);
+        if (!role) return;
+
+        const morningAzkar = `☀️ **صباح الخير! أذكار الصباح:**\n\n- أصْبَحْنَا وَأصْبَحَ المُلْكُ للَّهِ، وَالحَمْدُ للَّهِ لا إلَهَ إلَّا اللَّهُ وَحْدَهُ لا شَرِيكَ لَهُ.\n- أظْهِرِ الشُّكْرَ وَاسْتَعِنْ بِاللَّهِ فِي يَوْمِك كُلِّهِ.`;
+
+        role.members.forEach(async (member) => {
+            if (!member.user.bot) {
+                await member.send(morningAzkar).catch(() => console.log(`تعذر إرسال أذكار الصباح لـ ${member.user.tag}`));
+            }
+        });
+    });
+
+    // ⏰ تذكير كل 5 ساعات لحاملي الرول
+    cron.schedule('0 */5 * * *', async () => {
+        const currentGuild = client.guilds.cache.get(GUILD_ID);
+        if (!currentGuild) return;
+
+        const role = await currentGuild.roles.fetch(PROTECTED_ROLE_ID).catch(() => null);
+        if (!role) return;
+
+        const clanMessage = "nostalgia متنساش اليامات ارواح للكلان";
+
+        role.members.forEach(async (member) => {
+            if (!member.user.bot) {
+                await member.send(clanMessage).catch(() => console.log(`تعذر إرسال التذكير لـ ${member.user.tag}`));
+            }
+        });
+    });
+});
+
+// 4️⃣ حماية الرول عند التعديل
+client.on('roleUpdate', async (oldRole, newRole) => {
+    if (newRole.id !== PROTECTED_ROLE_ID) return;
+
+    if (
+        oldRole.name !== newRole.name ||
+        oldRole.permissions.bitfield !== newRole.permissions.bitfield ||
+        oldRole.position !== newRole.position ||
+        oldRole.color !== newRole.color
+    ) {
+        const fetchedLogs = await newRole.guild.fetchAuditLogs({ limit: 1, type: 31 }).catch(() => null);
+        const log = fetchedLogs?.entries.first();
+        const executorId = log?.executor?.id;
+
+        if (executorId === OWNER_ID) return;
+
+        // إرجاع التعديلات السابقة
+        await newRole.edit({
+            name: oldRole.name,
+            permissions: oldRole.permissions,
+            position: oldRole.position,
+            color: oldRole.color
+        }).catch(console.error);
+
+        if (executorId) {
+            await punishExecutor(newRole.guild, executorId);
+        }
+    }
+});
+
+// 5️⃣ حماية الرول عند الحذف
+client.on('roleDelete', async (role) => {
+    if (role.id !== PROTECTED_ROLE_ID) return;
+
+    const fetchedLogs = await role.guild.fetchAuditLogs({ limit: 1, type: 32 }).catch(() => null);
+    const log = fetchedLogs?.entries.first();
+    const executorId = log?.executor?.id;
+
+    // إعادة إنشاء الرول فوراً
+    await role.guild.roles.create({
+        name: role.name,
+        color: role.color,
+        permissions: role.permissions,
+        reason: 'إعادة إنشاء الرول المحمي تلقائياً'
+    }).catch(console.error);
+
+    if (executorId && executorId !== OWNER_ID) {
+        await punishExecutor(role.guild, executorId);
+    }
+});
+
+// 6️⃣ حماية الرول عند إعطائه أو إزالته من الأعضاء
+client.on('guildMemberUpdate', async (oldMember, newMember) => {
+    const hadRole = oldMember.roles.cache.has(PROTECTED_ROLE_ID);
+    const hasRole = newMember.roles.cache.has(PROTECTED_ROLE_ID);
+
+    if (hadRole !== hasRole) {
+        const fetchedLogs = await newMember.guild.fetchAuditLogs({ limit: 1, type: 25 }).catch(() => null);
+        const log = fetchedLogs?.entries.first();
+        const executorId = log?.executor?.id;
+
+        if (executorId === OWNER_ID) return;
+
+        // التراجع عن إعطاء/إزالة الرول
+        if (hasRole) {
+            await newMember.roles.remove(PROTECTED_ROLE_ID).catch(console.error);
+        } else {
+            await newMember.roles.add(PROTECTED_ROLE_ID).catch(console.error);
+        }
+
+        if (executorId) {
+            await punishExecutor(newMember.guild, executorId);
+        }
+    }
+});
+
+// 7️⃣ إرجاع البوت للروم الصوتي عند الخروج
+client.on('voiceStateUpdate', (oldState, newState) => {
+    if (newState.id === client.user.id) {
+        if (!newState.channelId || newState.channelId !== TARGET_CHANNEL_ID) {
+            setTimeout(() => connectToVoiceChannel(), 2000);
+        }
+    }
+});
+
+client.login(TOKEN);
