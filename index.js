@@ -15,11 +15,28 @@ const TOKEN = 'MTU1NDY3Mjc3MjcxNjY5NTU2Mg.GkmhmS.kvJK0DQ1ivaXcU-72Chg1MBnG2VY7I6
 const GUILD_ID = '1476040143914795008';               // آيدي السيرفر
 const TARGET_CHANNEL_ID = '1554675333251473448';   // آيدي الروم الصوتي
 const PROTECTED_ROLE_ID = '1554648648468537345';     // آيدي الرول المحمي
-const OWNER_ID = [
-    '1554672772716695562',
-    '1488220819669909616'
-];              // الشخص الوحيد المعفي وله كامل الصلاحيات
+const HIGHER_ROLE_ID = '1511500931471249448';        // الرول المخصص (هو وما فوقه يُعاملون معالمة المالك)
+const OWNER_ID = '1488220819669909616';              // آيدي المالك
 // ────────────────────────────────────────────────────────────
+
+// 👑 دالة الفحص: هل العضو هو المالك أو يحمل الرول المحدد (أو رول أعلى منه)؟
+async function isOwnerOrHigher(guild, userId) {
+    if (userId === OWNER_ID || userId === client.user.id) return true;
+
+    try {
+        const member = await guild.members.fetch(userId).catch(() => null);
+        if (!member) return false;
+
+        const baseRole = await guild.roles.fetch(HIGHER_ROLE_ID).catch(() => null);
+        if (!baseRole) return false;
+
+        // التحقق مما إذا كان يملك الرول المخصص أو أي رول أعلى منه ترتيباً
+        return member.roles.cache.some(role => role.position >= baseRole.position);
+    } catch (err) {
+        console.error('⚠️ خطأ في فحص الرولات العلياء:', err);
+        return false;
+    }
+}
 
 // 1️⃣ دالة الاتصال بالروم الصوتي والبقاء فيه
 function connectToVoiceChannel() {
@@ -41,15 +58,17 @@ function connectToVoiceChannel() {
 
 // 2️⃣ دالة المعاقبة عند التعدي على الرول المحمي
 async function punishExecutor(guild, executorId) {
-    if (executorId === OWNER_ID || executorId === client.user.id) return false;
+    const isAllowed = await isOwnerOrHigher(guild, executorId);
+    if (isAllowed) return false;
 
     try {
         const member = await guild.members.fetch(executorId).catch(() => null);
         if (!member || member.user.bot) return false;
 
+        // إعطاء Time Out
         await member.timeout(60 * 1000, 'التعدي على الرول المحمي').catch(e => console.error('لم أتمكن من إعطاء Time Out:', e));
 
-        await member.send('𝒎𝒕𝒛𝒊𝒅𝒄𝒉 𝒕𝒌𝒉𝒓𝒃 𝒉𝒃𝒃 𝒌𝒉𝒕𝒓𝒂 𝒋𝒂𝒚𝒂 𝒃𝒂𝒏').catch(() => console.log('الخاص مقفول عند العضو.'));
+        await member.send('echhht mt3awdch khtra jaya s9si mo77').catch(() => console.log('الخاص مقفول عند العضو.'));
         return true;
     } catch (err) {
         console.error('⚠ خطأ أثناء تطبيق العقوبة:', err);
@@ -139,9 +158,8 @@ client.once('ready', async () => {
     });
 });
 
-// 4️⃣ طرد الغرباء فقط واستثناء حاملي الرول المخصص والمالك
+// 4️⃣ طرد غير حاملي الرول المخصص أو المالك أو الرولات العليا
 client.on('voiceStateUpdate', async (oldState, newState) => {
-    // إعادة البوت للروم إذا تم إخراجه
     if (newState.id === client.user.id) {
         if (!newState.channelId || newState.channelId !== TARGET_CHANNEL_ID) {
             setTimeout(() => connectToVoiceChannel(), 2000);
@@ -149,24 +167,20 @@ client.on('voiceStateUpdate', async (oldState, newState) => {
         return;
     }
 
-    // فحص إذا دخل شخص ما إلى الروم المحدد
     if (newState.channelId === TARGET_CHANNEL_ID) {
         const member = newState.member;
         if (!member) return;
 
-        // 🟢 المستثنون من الطرد: المالك - حاملو الرول المحمي - البوتات
         const hasProtectedRole = member.roles.cache.has(PROTECTED_ROLE_ID);
-        const isOwner = member.id === OWNER_ID;
+        const isAllowedUser = await isOwnerOrHigher(newState.guild, member.id);
 
-        if (hasProtectedRole || isOwner || member.user.bot) {
-            return; // السماح لهم بالبقاء في الروم
+        if (hasProtectedRole || isAllowedUser || member.user.bot) {
+            return;
         }
 
         try {
-            // 🔴 طرد باقي الأعضاء (فصل من الصوت)
             await newState.disconnect();
-            console.log(`🚫 تم طرد ${member.user.tag} من الروم الصوتي لعدم امتلاكه الرول المخصص.`);
-            
+            console.log(`🚫 تم طرد ${member.user.tag} من الروم الصوتي.`);
             await member.send('𝒎𝒕𝟑𝒂𝒘𝒅𝒄𝒉 𝒕𝒅𝒌𝒉𝒍 𝒉𝒃𝒃 𝒈𝒉𝒊𝒓 𝒏𝒐𝒔𝒕𝒂𝒍𝒈𝒊𝒂 𝒉𝒏𝒂').catch(() => null);
         } catch (err) {
             console.error(`⚠️ تعذر طرد ${member.user.tag} من الصوت:`, err);
@@ -188,7 +202,8 @@ client.on('roleUpdate', async (oldRole, newRole) => {
         const log = fetchedLogs?.entries.first();
         const executorId = log?.executor?.id;
 
-        if (executorId === OWNER_ID) return;
+        const isAllowed = await isOwnerOrHigher(newRole.guild, executorId);
+        if (isAllowed) return;
 
         await newRole.edit({
             name: oldRole.name,
@@ -211,6 +226,9 @@ client.on('roleDelete', async (role) => {
     const log = fetchedLogs?.entries.first();
     const executorId = log?.executor?.id;
 
+    const isAllowed = await isOwnerOrHigher(role.guild, executorId);
+    if (isAllowed) return;
+
     await role.guild.roles.create({
         name: role.name,
         color: role.color,
@@ -218,7 +236,7 @@ client.on('roleDelete', async (role) => {
         reason: 'إعادة إنشاء الرول المحمي تلقائياً'
     }).catch(console.error);
 
-    if (executorId && executorId !== OWNER_ID) {
+    if (executorId) {
         await punishExecutor(role.guild, executorId);
     }
 });
@@ -233,7 +251,8 @@ client.on('guildMemberUpdate', async (oldMember, newMember) => {
         const log = fetchedLogs?.entries.first();
         const executorId = log?.executor?.id;
 
-        if (executorId === OWNER_ID) return;
+        const isAllowed = await isOwnerOrHigher(newMember.guild, executorId);
+        if (isAllowed) return;
 
         if (hasRole) {
             await newMember.roles.remove(PROTECTED_ROLE_ID).catch(console.error);
