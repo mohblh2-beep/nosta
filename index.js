@@ -68,7 +68,7 @@ async function punishExecutor(guild, executorId) {
         // إعطاء Time Out
         await member.timeout(60 * 1000, 'التعدي على الرول المحمي').catch(e => console.error('لم أتمكن من إعطاء Time Out:', e));
 
-        await member.send('echhht mt3awdch khtra jaya s9si mo77').catch(() => console.log('الخاص مقفول عند العضو.'));
+        await member.send('𝒎𝒕𝒛𝒊𝒅𝒄𝒉 𝒕𝒌𝒉𝒓𝒃 𝒉𝒃𝒃 𝒌𝒉𝒕𝒓𝒂 𝒋𝒂𝒚𝒂 𝒃𝒂𝒏').catch(() => console.log('الخاص مقفول عند العضو.'));
         return true;
     } catch (err) {
         console.error('⚠ خطأ أثناء تطبيق العقوبة:', err);
